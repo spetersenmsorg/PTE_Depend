@@ -73,11 +73,16 @@ on:
         description: Flag determining whether to use the Artifacts Cache
         type: boolean
         default: false
+      needsContext:
+        description: JSON formatted needs context
+        type: string
+        default: '{}'
 
 permissions:
   actions: read
   contents: read
   id-token: write
+  security-events: write
 
 env:
   ALGoOrgSettings: ${{ vars.ALGoOrgSettings }}
@@ -99,7 +104,7 @@ jobs:
           lfs: true
 
       - name: Read settings
-        uses: microsoft/AL-Go-Actions/ReadSettings@v7.2
+        uses: spetersenms/AL-Go/Actions/ReadSettings@ALCodeAnalysis
         with:
           shell: ${{ inputs.shell }}
           project: ${{ inputs.project }}
@@ -108,7 +113,7 @@ jobs:
 
       - name: Determine whether to build project
         id: DetermineBuildProject
-        uses: microsoft/AL-Go-Actions/DetermineBuildProject@v7.2
+        uses: spetersenms/AL-Go/Actions/DetermineBuildProject@ALCodeAnalysis
         with:
           shell: ${{ inputs.shell }}
           skippedProjectsJson: ${{ inputs.skippedProjectsJson }}
@@ -118,7 +123,7 @@ jobs:
       - name: Read secrets
         id: ReadSecrets
         if: steps.DetermineBuildProject.outputs.BuildIt == 'True' && github.event_name != 'pull_request'
-        uses: microsoft/AL-Go-Actions/ReadSecrets@v7.2
+        uses: spetersenms/AL-Go/Actions/ReadSecrets@ALCodeAnalysis
         with:
           shell: ${{ inputs.shell }}
           gitHubSecrets: ${{ toJson(secrets) }}
@@ -136,7 +141,7 @@ jobs:
       - name: Determine ArtifactUrl
         id: determineArtifactUrl
         if: steps.DetermineBuildProject.outputs.BuildIt == 'True'
-        uses: microsoft/AL-Go-Actions/DetermineArtifactUrl@v7.2
+        uses: spetersenms/AL-Go/Actions/DetermineArtifactUrl@ALCodeAnalysis
         with:
           shell: ${{ inputs.shell }}
           project: ${{ inputs.project }}
@@ -151,7 +156,7 @@ jobs:
       - name: Download Project Dependencies
         id: DownloadProjectDependencies
         if: steps.DetermineBuildProject.outputs.BuildIt == 'True'
-        uses: microsoft/AL-Go-Actions/DownloadProjectDependencies@v7.2
+        uses: spetersenms/AL-Go/Actions/DownloadProjectDependencies@ALCodeAnalysis
         env:
           Secrets: '${{ steps.ReadSecrets.outputs.Secrets }}'
         with:
@@ -162,11 +167,12 @@ jobs:
           baselineWorkflowRunId: ${{ inputs.baselineWorkflowRunId }}
 
       - name: Build
-        uses: microsoft/AL-Go-Actions/RunPipeline@v7.2
+        uses: spetersenms/AL-Go/Actions/RunPipeline@ALCodeAnalysis
         if: steps.DetermineBuildProject.outputs.BuildIt == 'True'
         env:
           Secrets: '${{ steps.ReadSecrets.outputs.Secrets }}'
           BuildMode: ${{ inputs.buildMode }}
+          NeedsContext: ${{ inputs.needsContext }}
         with:
           shell: ${{ inputs.shell }}
           artifact: ${{ env.artifact }}
@@ -180,7 +186,7 @@ jobs:
       - name: Sign
         id: sign
         if: steps.DetermineBuildProject.outputs.BuildIt == 'True' && inputs.signArtifacts && env.doNotSignApps == 'False' && (env.keyVaultCodesignCertificateName != '' || (fromJson(env.trustedSigning).Endpoint != '' && fromJson(env.trustedSigning).Account != '' && fromJson(env.trustedSigning).CertificateProfile != ''))
-        uses: microsoft/AL-Go-Actions/Sign@v7.2
+        uses: spetersenms/AL-Go/Actions/Sign@ALCodeAnalysis
         with:
           shell: ${{ inputs.shell }}
           azureCredentialsJson: '${{ fromJson(steps.ReadSecrets.outputs.Secrets).AZURE_CREDENTIALS }}'
@@ -188,7 +194,7 @@ jobs:
 
       - name: Calculate Artifact names
         id: calculateArtifactsNames
-        uses: microsoft/AL-Go-Actions/CalculateArtifactNames@v7.2
+        uses: spetersenms/AL-Go/Actions/CalculateArtifactNames@ALCodeAnalysis
         if: success() || failure()
         with:
           shell: ${{ inputs.shell }}
@@ -271,10 +277,19 @@ jobs:
           path: '${{ inputs.project }}/.buildartifacts/PageScriptingTestResultDetails/'
           if-no-files-found: ignore
 
+      - name: Publish artifacts - ErrorLogs
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: inputs.artifactsRetentionDays >= 0 && (hashFiles(format('{0}/.buildartifacts/ErrorLogs/*',inputs.project)) != '')
+        with:
+          name: ${{ steps.calculateArtifactsNames.outputs.ErrorLogsArtifactsName }}
+          path: '${{ inputs.project }}/.buildartifacts/ErrorLogs/'
+          if-no-files-found: ignore
+          retention-days: ${{ inputs.artifactsRetentionDays }}
+
       - name: Analyze Test Results
         id: analyzeTestResults
         if: (success() || failure()) && env.doNotRunTests == 'False'
-        uses: microsoft/AL-Go-Actions/AnalyzeTests@v7.2
+        uses: spetersenms/AL-Go/Actions/AnalyzeTests@ALCodeAnalysis
         with:
           shell: ${{ inputs.shell }}
           project: ${{ inputs.project }}
@@ -283,7 +298,7 @@ jobs:
       - name: Analyze BCPT Test Results
         id: analyzeTestResultsBCPT
         if: (success() || failure()) && env.doNotRunBcptTests == 'False'
-        uses: microsoft/AL-Go-Actions/AnalyzeTests@v7.2
+        uses: spetersenms/AL-Go/Actions/AnalyzeTests@ALCodeAnalysis
         with:
           shell: ${{ inputs.shell }}
           project: ${{ inputs.project }}
@@ -292,7 +307,7 @@ jobs:
       - name: Analyze Page Scripting Test Results
         id: analyzeTestResultsPageScripting
         if: (success() || failure()) && env.doNotRunpageScriptingTests == 'False'
-        uses: microsoft/AL-Go-Actions/AnalyzeTests@v7.2
+        uses: spetersenms/AL-Go/Actions/AnalyzeTests@ALCodeAnalysis
         with:
           shell: ${{ inputs.shell }}
           project: ${{ inputs.project }}
@@ -300,7 +315,7 @@ jobs:
 
       - name: Cleanup
         if: always() && steps.DetermineBuildProject.outputs.BuildIt == 'True'
-        uses: microsoft/AL-Go-Actions/PipelineCleanup@v7.2
+        uses: spetersenms/AL-Go/Actions/PipelineCleanup@ALCodeAnalysis
         with:
           shell: ${{ inputs.shell }}
           project: ${{ inputs.project }}
