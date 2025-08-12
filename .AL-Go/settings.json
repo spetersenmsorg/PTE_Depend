@@ -1,7 +1,13 @@
 {
-  "$schema": "https://raw.githubusercontent.com/microsoft/AL-Go-Actions/v7.2/settings.schema.json",
+  "$schema": "https://raw.githubusercontent.com/spetersenms/AL-Go/ALCodeAnalysis/Actions/settings.schema.json",
   "country": "us",
-  "appFolders": [],
+  "appFolders": [
+    "./base"
+  ],
   "testFolders": [],
-  "bcptTestFolders": []
+  "bcptTestFolders": [],
+  "pageScriptingTests": [
+    "Recordings"
+  ],
+  "artifact": "//*//latest"
 }
