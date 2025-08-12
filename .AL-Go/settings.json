@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/spetersenms/AL-Go/ALCodeAnalysis/Actions/settings.schema.json",
   "country": "us",
   "appFolders": [
-    "./base"
+    "./depend"
   ],
   "testFolders": [],
   "bcptTestFolders": [],
