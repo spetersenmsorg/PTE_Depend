@@ -17,7 +17,6 @@ permissions:
   contents: read
   id-token: write
   pull-requests: read
-  security-events: write
 
 env:
   workflowDepth: 1
@@ -29,7 +28,7 @@ jobs:
     if: (github.event.pull_request.base.repo.full_name != github.event.pull_request.head.repo.full_name) && (github.event_name != 'pull_request')
     runs-on: windows-latest
     steps:
-      - uses: spetersenms/AL-Go/Actions/VerifyPRChanges@ALCodeAnalysis
+      - uses: spetersenms/AL-Go/Actions/VerifyPRChanges@SchemaPath
 
   Initialization:
     needs: [ PregateCheck ]
@@ -46,25 +45,25 @@ jobs:
       telemetryScopeJson: ${{ steps.init.outputs.telemetryScopeJson }}
     steps:
       - name: Dump Workflow Information
-        uses: spetersenms/AL-Go/Actions/DumpWorkflowInfo@ALCodeAnalysis
+        uses: spetersenms/AL-Go/Actions/DumpWorkflowInfo@SchemaPath
         with:
           shell: powershell
 
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
         with:
           lfs: true
           ref: ${{ github.event_name == 'pull_request' && github.sha || format('refs/pull/{0}/merge', github.event.pull_request.number) }}
 
       - name: Initialize the workflow
         id: init
-        uses: spetersenms/AL-Go/Actions/WorkflowInitialize@ALCodeAnalysis
+        uses: spetersenms/AL-Go/Actions/WorkflowInitialize@SchemaPath
         with:
           shell: powershell
 
       - name: Read settings
         id: ReadSettings
-        uses: spetersenms/AL-Go/Actions/ReadSettings@ALCodeAnalysis
+        uses: spetersenms/AL-Go/Actions/ReadSettings@SchemaPath
         with:
           shell: powershell
           get: shortLivedArtifactsRetentionDays
@@ -77,7 +76,7 @@ jobs:
 
       - name: Determine Projects To Build
         id: determineProjectsToBuild
-        uses: spetersenms/AL-Go/Actions/DetermineProjectsToBuild@ALCodeAnalysis
+        uses: spetersenms/AL-Go/Actions/DetermineProjectsToBuild@SchemaPath
         with:
           shell: powershell
           maxBuildDepth: ${{ env.workflowDepth }}
@@ -108,57 +107,15 @@ jobs:
       needsContext:  ${{ toJson(needs) }}
       useArtifactCache: true
 
-  CodeAnalysisUpload:
-    needs: [ Initialization, Build ]
-    if: (!cancelled())
-    runs-on: [ windows-latest ]
-    name: Code Analysis Processing
-    steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          lfs: true
-          ref: ${{ github.event_name == 'pull_request' && github.sha || format('refs/pull/{0}/merge', github.event.pull_request.number) }}
-          
-      - name: Read settings
-        uses: spetersenms/AL-Go/Actions/ReadSettings@ALCodeAnalysis
-        with:
-          shell: powershell
-          get: trackCodeCopIssuesInGitHub
-
-      - name: Download artifacts - ErrorLogs
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
-        if: (success() || failure()) && env.trackCodeCopIssuesInGitHub == 'True'
-        with:
-          pattern: '*-ErrorLogs-*'
-          path: '${{ github.workspace }}/ErrorLogs/'
-          merge_multiple: true
-
-      - name: Process AL Code Analysis Logs
-        id: ProcessALCodeAnalysisLogs
-        if: (success() || failure()) && env.trackCodeCopIssuesInGitHub == 'True'
-        uses: spetersenms/AL-Go/Actions/ProcessALCodeAnalysisLogs@ALCodeAnalysis
-        with:
-          shell: ${{ inputs.shell }}
-
-      - name: Upload SARIF file to GitHub
-        uses: github/codeql-action/upload-sarif@v3
-        if: always() && env.trackCodeCopIssuesInGitHub == 'True' && hashFiles('${{ github.workspace }}/ErrorLogs/output.sarif.json') != ''
-        with:
-          sarif_file: '${{ github.workspace }}/ErrorLogs/output.sarif.json'
-          category: "AL Code Analysis"
-          ref: ${{ github.event.pull_request.number && format('refs/heads/{0}', github.event.pull_request.head.ref) || format('refs/heads/{0}', github.ref_name) }}
-          sha: ${{ github.event.pull_request.head.sha || github.sha }}
-
   StatusCheck:
-    needs: [ Initialization, Build, CodeAnalysisUpload ]
+    needs: [ Initialization, Build ]
     if: (!cancelled())
     runs-on: [ windows-latest ]
     name: Pull Request Status Check
     steps:
       - name: Pull Request Status Check
         id: PullRequestStatusCheck
-        uses: spetersenms/AL-Go/Actions/PullRequestStatusCheck@ALCodeAnalysis
+        uses: spetersenms/AL-Go/Actions/PullRequestStatusCheck@SchemaPath
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
@@ -166,7 +123,7 @@ jobs:
 
       - name: Finalize the workflow
         id: PostProcess
-        uses: spetersenms/AL-Go/Actions/WorkflowPostProcess@ALCodeAnalysis
+        uses: spetersenms/AL-Go/Actions/WorkflowPostProcess@SchemaPath
         if: success() || failure()
         env:
           GITHUB_TOKEN: ${{ github.token }}

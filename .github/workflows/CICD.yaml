@@ -18,7 +18,6 @@ permissions:
   contents: read
   id-token: write
   pages: read
-  security-events: write
 
 env:
   workflowDepth: 1
@@ -49,24 +48,24 @@ jobs:
       powerPlatformSolutionFolder: ${{ steps.DeterminePowerPlatformSolutionFolder.outputs.powerPlatformSolutionFolder }}
     steps:
       - name: Dump Workflow Information
-        uses: spetersenms/AL-Go/Actions/DumpWorkflowInfo@ALCodeAnalysis
+        uses: spetersenms/AL-Go/Actions/DumpWorkflowInfo@SchemaPath
         with:
           shell: powershell
 
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
         with:
           lfs: true
 
       - name: Initialize the workflow
         id: init
-        uses: spetersenms/AL-Go/Actions/WorkflowInitialize@ALCodeAnalysis
+        uses: spetersenms/AL-Go/Actions/WorkflowInitialize@SchemaPath
         with:
           shell: powershell
 
       - name: Read settings
         id: ReadSettings
-        uses: spetersenms/AL-Go/Actions/ReadSettings@ALCodeAnalysis
+        uses: spetersenms/AL-Go/Actions/ReadSettings@SchemaPath
         with:
           shell: powershell
           get: type,powerPlatformSolutionFolder,useGitSubmodules
@@ -74,7 +73,7 @@ jobs:
       - name: Read submodules token
         id: ReadSubmodulesToken
         if: env.useGitSubmodules != 'false' && env.useGitSubmodules != ''
-        uses: spetersenms/AL-Go/Actions/ReadSecrets@ALCodeAnalysis
+        uses: spetersenms/AL-Go/Actions/ReadSecrets@SchemaPath
         with:
           shell: powershell
           gitHubSecrets: ${{ toJson(secrets) }}
@@ -82,7 +81,7 @@ jobs:
 
       - name: Checkout Submodules
         if: env.useGitSubmodules != 'false' && env.useGitSubmodules != ''
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
         with:
           lfs: true
           submodules: ${{ env.useGitSubmodules }}
@@ -95,7 +94,7 @@ jobs:
 
       - name: Determine Projects To Build
         id: determineProjectsToBuild
-        uses: spetersenms/AL-Go/Actions/DetermineProjectsToBuild@ALCodeAnalysis
+        uses: spetersenms/AL-Go/Actions/DetermineProjectsToBuild@SchemaPath
         with:
           shell: powershell
           maxBuildDepth: ${{ env.workflowDepth }}
@@ -108,7 +107,7 @@ jobs:
 
       - name: Determine Delivery Target Secrets
         id: DetermineDeliveryTargetSecrets
-        uses: spetersenms/AL-Go/Actions/DetermineDeliveryTargets@ALCodeAnalysis
+        uses: spetersenms/AL-Go/Actions/DetermineDeliveryTargets@SchemaPath
         with:
           shell: powershell
           projectsJson: '${{ steps.determineProjectsToBuild.outputs.ProjectsJson }}'
@@ -116,7 +115,7 @@ jobs:
 
       - name: Read secrets
         id: ReadSecrets
-        uses: spetersenms/AL-Go/Actions/ReadSecrets@ALCodeAnalysis
+        uses: spetersenms/AL-Go/Actions/ReadSecrets@SchemaPath
         with:
           shell: powershell
           gitHubSecrets: ${{ toJson(secrets) }}
@@ -124,7 +123,7 @@ jobs:
 
       - name: Determine Delivery Targets
         id: DetermineDeliveryTargets
-        uses: spetersenms/AL-Go/Actions/DetermineDeliveryTargets@ALCodeAnalysis
+        uses: spetersenms/AL-Go/Actions/DetermineDeliveryTargets@SchemaPath
         env:
           Secrets: '${{ steps.ReadSecrets.outputs.Secrets }}'
         with:
@@ -134,7 +133,7 @@ jobs:
 
       - name: Determine Deployment Environments
         id: DetermineDeploymentEnvironments
-        uses: spetersenms/AL-Go/Actions/DetermineDeploymentEnvironments@ALCodeAnalysis
+        uses: spetersenms/AL-Go/Actions/DetermineDeploymentEnvironments@SchemaPath
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
@@ -147,24 +146,24 @@ jobs:
     runs-on: [ windows-latest ]
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
 
       - name: Read settings
-        uses: spetersenms/AL-Go/Actions/ReadSettings@ALCodeAnalysis
+        uses: spetersenms/AL-Go/Actions/ReadSettings@SchemaPath
         with:
           shell: powershell
           get: templateUrl
 
       - name: Read secrets
         id: ReadSecrets
-        uses: spetersenms/AL-Go/Actions/ReadSecrets@ALCodeAnalysis
+        uses: spetersenms/AL-Go/Actions/ReadSecrets@SchemaPath
         with:
           shell: powershell
           gitHubSecrets: ${{ toJson(secrets) }}
           getSecrets: 'ghTokenWorkflow'
 
       - name: Check for updates to AL-Go system files
-        uses: spetersenms/AL-Go/Actions/CheckForUpdates@ALCodeAnalysis
+        uses: spetersenms/AL-Go/Actions/CheckForUpdates@SchemaPath
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
@@ -198,43 +197,6 @@ jobs:
       useArtifactCache: true
       needsContext:  ${{ toJson(needs) }}
 
-  CodeAnalysisUpload:
-    needs: [ Initialization, Build ]
-    if: (!cancelled())
-    runs-on: [ windows-latest ]
-    name: Code Analysis Processing
-    steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-          
-      - name: Read settings
-        uses: spetersenms/AL-Go/Actions/ReadSettings@ALCodeAnalysis
-        with:
-          shell: powershell
-          get: trackCodeCopIssuesInGitHub
-
-      - name: Download artifacts - ErrorLogs
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
-        if: (success() || failure()) && env.trackCodeCopIssuesInGitHub == 'True'
-        with:
-          pattern: '*-ErrorLogs-*'
-          path: '${{ github.workspace }}/ErrorLogs/'
-          merge_multiple: true
-
-      - name: Process AL Code Analysis Logs
-        id: ProcessALCodeAnalysisLogs
-        if: (success() || failure()) && env.trackCodeCopIssuesInGitHub == 'True'
-        uses: spetersenms/AL-Go/Actions/ProcessALCodeAnalysisLogs@ALCodeAnalysis
-        with:
-          shell: ${{ inputs.shell }}
-
-      - name: Upload SARIF file to GitHub
-        uses: github/codeql-action/upload-sarif@v3
-        if: always() && env.trackCodeCopIssuesInGitHub == 'True' && hashFiles('${{ github.workspace }}/ErrorLogs/output.sarif.json') != ''
-        with:
-          sarif_file: '${{ github.workspace }}/ErrorLogs/output.sarif.json'
-          category: "AL Code Analysis"
-
   DeployALDoc:
     needs: [ Initialization, Build ]
     if: (!cancelled()) && (needs.Build.result == 'success' || needs.Build.result == 'skipped') && needs.Initialization.outputs.generateALDocArtifact == 1 && github.ref_name == 'main'
@@ -250,15 +212,15 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
 
       - name: Download artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
           path: '.artifacts'
 
       - name: Read settings
-        uses: spetersenms/AL-Go/Actions/ReadSettings@ALCodeAnalysis
+        uses: spetersenms/AL-Go/Actions/ReadSettings@SchemaPath
         with:
           shell: powershell
 
@@ -267,7 +229,7 @@ jobs:
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
 
       - name: Build Reference Documentation
-        uses: spetersenms/AL-Go/Actions/BuildReferenceDocumentation@ALCodeAnalysis
+        uses: spetersenms/AL-Go/Actions/BuildReferenceDocumentation@SchemaPath
         with:
           shell: powershell
           artifacts: '.artifacts'
@@ -299,15 +261,15 @@ jobs:
       ALGoEnvName: ${{ matrix.environment }}
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
 
       - name: Download artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
           path: '.artifacts'
 
       - name: Read settings
-        uses: spetersenms/AL-Go/Actions/ReadSettings@ALCodeAnalysis
+        uses: spetersenms/AL-Go/Actions/ReadSettings@SchemaPath
         with:
           shell: ${{ matrix.shell }}
           get: type,powerPlatformSolutionFolder
@@ -321,7 +283,7 @@ jobs:
 
       - name: Read secrets
         id: ReadSecrets
-        uses: spetersenms/AL-Go/Actions/ReadSecrets@ALCodeAnalysis
+        uses: spetersenms/AL-Go/Actions/ReadSecrets@SchemaPath
         with:
           shell: ${{ matrix.shell }}
           gitHubSecrets: ${{ toJson(secrets) }}
@@ -329,7 +291,7 @@ jobs:
 
       - name: Deploy to Business Central
         id: Deploy
-        uses: spetersenms/AL-Go/Actions/Deploy@ALCodeAnalysis
+        uses: spetersenms/AL-Go/Actions/Deploy@SchemaPath
         env:
           Secrets: '${{ steps.ReadSecrets.outputs.Secrets }}'
         with:
@@ -341,7 +303,7 @@ jobs:
 
       - name: Deploy to Power Platform
         if: env.type == 'PTE' && env.powerPlatformSolutionFolder != ''
-        uses: spetersenms/AL-Go/Actions/DeployPowerPlatform@ALCodeAnalysis
+        uses: spetersenms/AL-Go/Actions/DeployPowerPlatform@SchemaPath
         env:
           Secrets: '${{ steps.ReadSecrets.outputs.Secrets }}'
         with:
@@ -361,28 +323,28 @@ jobs:
     name: Deliver to ${{ matrix.deliveryTarget }}
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
 
       - name: Download artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
           path: '.artifacts'
 
       - name: Read settings
-        uses: spetersenms/AL-Go/Actions/ReadSettings@ALCodeAnalysis
+        uses: spetersenms/AL-Go/Actions/ReadSettings@SchemaPath
         with:
           shell: powershell
 
       - name: Read secrets
         id: ReadSecrets
-        uses: spetersenms/AL-Go/Actions/ReadSecrets@ALCodeAnalysis
+        uses: spetersenms/AL-Go/Actions/ReadSecrets@SchemaPath
         with:
           shell: powershell
           gitHubSecrets: ${{ toJson(secrets) }}
           getSecrets: '${{ matrix.deliveryTarget }}Context'
 
       - name: Deliver
-        uses: spetersenms/AL-Go/Actions/Deliver@ALCodeAnalysis
+        uses: spetersenms/AL-Go/Actions/Deliver@SchemaPath
         env:
           Secrets: '${{ steps.ReadSecrets.outputs.Secrets }}'
         with:
@@ -398,11 +360,11 @@ jobs:
     runs-on: [ windows-latest ]
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
 
       - name: Finalize the workflow
         id: PostProcess
-        uses: spetersenms/AL-Go/Actions/WorkflowPostProcess@ALCodeAnalysis
+        uses: spetersenms/AL-Go/Actions/WorkflowPostProcess@SchemaPath
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
